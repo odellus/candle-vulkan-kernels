@@ -1,0 +1,56 @@
+#version 450
+
+// Simple matrix addition compute shader
+// Based on GGML vulkan patterns for Candle backend
+// Adds two matrices element-wise: C = A + B
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+// Storage buffers for input matrices and result
+// Following GGML's buffer binding patterns
+layout(set = 0, binding = 0) buffer MatrixA {
+    float data[];
+} matrix_a;
+
+layout(set = 0, binding = 1) buffer MatrixB {
+    float data[];
+} matrix_b;
+
+layout(set = 0, binding = 2) buffer MatrixC {
+    float data[];
+} matrix_c;
+
+// Push constants for matrix dimensions
+// Following GGML's push constant patterns
+layout(push_constant) uniform PushConstants {
+    uint rows;
+    uint cols;
+    uint stride_a;  // stride for matrix A in elements
+    uint stride_b;  // stride for matrix B in elements
+    uint stride_c;  // stride for matrix C in elements
+} push_constants;
+
+void main() {
+    // Calculate global ID for this workgroup
+    // Using GGML-style workgroup computation
+    uint global_id = gl_GlobalInvocationID.x;
+
+    // Ensure we don't go out of bounds
+    if (global_id >= push_constants.rows * push_constants.cols) {
+        return;
+    }
+
+    // Calculate row and column indices
+    uint row = global_id / push_constants.cols;
+    uint col = global_id % push_constants.cols;
+
+    // Calculate indices with strides
+    // Following GGML's stride patterns
+    uint idx_a = row * push_constants.stride_a + col;
+    uint idx_b = row * push_constants.stride_b + col;
+    uint idx_c = row * push_constants.stride_c + col;
+
+    // Perform addition: C = A + B
+    // Basic element-wise operation
+    matrix_c.data[idx_c] = matrix_a.data[idx_a] + matrix_b.data[idx_b];
+}
